@@ -26,6 +26,22 @@ PROJECT_ID = os.environ.get("GCP_PROJECT_ID", "tu-proyecto-gcp-aqui")
 # No es un secreto: es parte de la convención del proyecto, así que va fijo.
 TOPIC_ID = "contactos-eventos"
 
+# Subscription desde donde el pipeline (Módulo 2) consume los eventos.
+# Convención: nombre del topic + sufijo "-sub". Un solo lugar de la verdad,
+# así el script de setup y el pipeline leen el mismo nombre.
+SUBSCRIPTION_ID = f"{TOPIC_ID}-sub"
+
+# --- Destino BigQuery (Módulo 2) ----------------------------------------------
+# Dataset y tabla donde el pipeline aterriza los contactos. Nombres de recurso
+# (no secretos), por eso van fijos. El proyecto sí sale de GCP_PROJECT_ID arriba.
+DATASET_ID = "torre_control"
+TABLE_ID = "contactos"
+
+# Tabla de Dead Letter Queue: mensajes corruptos (JSON inválido o sin campos
+# obligatorios) que el pipeline no pudo procesar. En vez de descartarlos en
+# silencio, los aterrizamos aquí para poder inspeccionarlos y reprocesarlos.
+TABLE_DLQ_ID = "contactos_dlq"
+
 # --- Catálogos del negocio ----------------------------------------------------
 # Cada canal trae su PESO (probabilidad de ocurrencia) y AHT base en segundos
 # (Average Handle Time = tiempo medio de atención de un contacto atendido).
@@ -97,3 +113,13 @@ CONTACTOS_POR_MINUTO_PEAK = 30
 # de espera. 20 segundos es el estándar clásico del 80/20 (atender al 80%
 # de los contactos en 20 segundos o menos).
 UMBRAL_SLA_SEG = 20
+
+# --- Parámetros del pipeline (Módulo 2) ---------------------------------------
+# Tamaño de la ventana de micro-lotes, en segundos. El pipeline junta todos los
+# eventos que llegan en esta ventana y los escribe a BigQuery en UN solo load job.
+#
+# Por qué 60s: BigQuery limita los load jobs a 1.500 por tabla al día. Una
+# ventana de 60s da como máximo absoluto ~1.440 jobs/día, justo bajo el límite.
+# Bajarla acelera la aparición de datos pero arriesga reventar la cuota si el
+# pipeline corre de forma continua. 60s es el equilibrio latencia/cuota.
+VENTANA_LOTE_SEG = 60
