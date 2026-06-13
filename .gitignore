@@ -1,0 +1,47 @@
+# --- Python ---
+# Entornos virtuales y caché de Python.
+# El venv se reconstruye con `uv sync`; no se versiona.
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# --- uv ---
+# uv.lock SÍ se versiona (garantiza dependencias reproducibles).
+# El cache de uv NO.
+.uv/
+
+# --- Variables de entorno ---
+# Pueden contener secrets (API keys, credenciales). Jamás al repo.
+.env
+.env.local
+.env.*.local
+
+# --- macOS ---
+# Archivos invisibles que macOS crea automáticamente.
+.DS_Store
+
+# --- IDEs ---
+# Configuración personal del editor; cada quien la suya.
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- Logs y archivos temporales ---
+*.log
+*.tmp
+tmp/
+
+# --- Credenciales GCP ---
+# Por si más adelante descargas un service account key.
+*-key.json
+service-account*.json
+credentials.json
+
+# --- Tests ---
+.pytest_cache/
+.coverage
+htmlcov/
