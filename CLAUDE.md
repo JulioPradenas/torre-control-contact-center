@@ -47,7 +47,7 @@ Los KPIs centrales que el proyecto modela:
 | Módulo | Nombre | Estado |
 |---|---|---|
 | 1 | Generador + ingesta Pub/Sub | ✅ Completo, funcionando end-to-end |
-| 2 | Pipeline Beam → BigQuery | 🚧 Pendiente — plan documentado |
+| 2 | Pipeline Beam → BigQuery | ✅ Completo, funcionando end-to-end |
 | 3 | Modelo SQL de KPIs | 🚧 Pendiente — plan documentado |
 | 4 | Dashboard Looker Studio | 🚧 Pendiente — plan documentado |
 
@@ -64,8 +64,8 @@ paso a paso, con el usuario validando cada decisión.
 | Lenguaje | Python | `>=3.11` (en `pyproject.toml`) |
 | Gestor de paquetes | uv | Usado para deps y ejecución |
 | Mensajería | Google Cloud Pub/Sub | Emulador local en `localhost:8085` |
-| Procesamiento | Apache Beam | A introducir en Módulo 2 |
-| Almacenamiento | BigQuery o DuckDB local | Decisión pendiente al iniciar M2 |
+| Procesamiento | Apache Beam | `2.70.0` (DirectRunner local, streaming) |
+| Almacenamiento | BigQuery Sandbox | Proyecto `torre-control-cc` (cuenta prad3nas), dataset `torre_control` |
 | Visualización | Looker Studio | Módulo 4 |
 | Diagramas | Mermaid (en README) | Renderizado automático por GitHub |
 | Control de versiones | Git + GitHub | Convención: Conventional Commits |
@@ -197,7 +197,54 @@ Resultado esperado: 10 líneas `[ N] canal | cola | estado`, sin errores.
 
 ---
 
-## 7. Módulo 2 — Pipeline Beam → BigQuery (🚧 pendiente — plan)
+## 7. Módulo 2 — Pipeline Beam → BigQuery (✅ completo)
+
+### Cómo quedó implementado (decisiones reales)
+
+> El plan original más abajo se conserva como referencia, pero la implementación
+> final difiere en un punto clave por restricciones del Sandbox. Esto manda.
+
+**Destino elegido:** BigQuery Sandbox. Proyecto `torre-control-cc` (cuenta
+`prad3nas@gmail.com`), dataset `torre_control` en multi-región `US`.
+
+**Restricción central descubierta (y verificada con datos reales):** el Sandbox
+SIN billing NO permite:
+- *streaming inserts* (exigen tarjeta),
+- *FILE_LOADS* de Beam (necesita un bucket de GCS, que también exige tarjeta),
+- *DML* (`DELETE`/`UPDATE`/`TRUNCATE`/`MERGE`).
+
+Sí permite: `SELECT`, DDL (`CREATE`/`DROP`) y **load jobs** cargados desde el
+cliente. Por eso **NO se usa el conector `WriteToBigQuery`**. En su lugar, un
+`DoFn` propio (`CargarABigQuery`) agrupa los eventos por ventana de tiempo
+(`FixedWindows`, default 60s) y los carga con `load_table_from_json` (load job
+gratuito, sin GCS). La ventana respeta el límite de 1.500 load jobs/tabla/día.
+
+**Para vaciar tablas** (no hay DML): `client.delete_table()` + recrear desde la
+DDL versionada.
+
+**Dead Letter Queue:** implementada. `ParsearYValidar` usa salida etiquetada;
+los mensajes mal formados (JSON inválido o sin campos obligatorios) van a la
+tabla `contactos_dlq` con su payload crudo y el motivo del descarte.
+
+**Archivos:**
+- `02_pipeline/pipeline_streaming.py` — el pipeline (DirectRunner, streaming).
+- `02_pipeline/ddl_contactos.sql` — DDL de `contactos` (particionada por día, cluster canal/cola).
+- `02_pipeline/ddl_contactos_dlq.sql` — DDL de `contactos_dlq`.
+- Constantes (`SUBSCRIPTION_ID`, `DATASET_ID`, `TABLE_ID`, `TABLE_DLQ_ID`, `VENTANA_LOTE_SEG`) en `config/settings.py`.
+
+**Comandos del smoke test (4 terminales).** Exportar en T2/T3/T4:
+`PUBSUB_EMULATOR_HOST=localhost:8085`, `GCP_PROJECT_ID=torre-control-cc`, `PYTHONPATH=.`
+
+| Terminal | Comando |
+|---|---|
+| 1 — Emulador | `gcloud beta emulators pubsub start --host-port=localhost:8085` |
+| 2 — Setup | `uv run python scripts/crear_topic_emulator.py && uv run python scripts/crear_subscription_emulator.py` |
+| 3 — Pipeline | `uv run python 02_pipeline/pipeline_streaming.py --ventana 20` |
+| 4 — Generador | `uv run python 01_generador/generador_contactos.py --total 20 --tasa 60` |
+
+Validado: 20/20 filas en `contactos`, 0 incoherencias (abandonados con atención NULL).
+
+---
 
 ### Objetivo
 Consumir eventos del topic en streaming, validar/transformar, y aterrizarlos
