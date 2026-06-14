@@ -53,17 +53,19 @@ flowchart LR
     end
 
     subgraph Analytics["Modelo y visualización"]
-        BQ[(BigQuery<br/>tabla cruda + vistas KPI)]
+        BQ[(BigQuery<br/>contactos + 7 vistas KPI)]
+        DLQ[(BigQuery<br/>contactos_dlq)]
         L[Looker Studio<br/>dashboard ejecutivo]
     end
 
     G -->|publica eventos JSON| T
     T -->|subscribe| P
-    P -->|inserta filas| BQ
+    P -->|válidos · load jobs por ventana| BQ
+    P -->|corruptos| DLQ
     BQ -->|consulta SQL| L
 
     classDef gcp fill:#e8f0fe,stroke:#1a73e8,stroke-width:2px
-    class T,P,BQ,L gcp
+    class T,P,BQ,DLQ,L gcp
 ```
 
 El diseño es **GCP-nativo**: cada pieza encaja directamente en un servicio
@@ -74,8 +76,8 @@ servicios cloud por sus equivalentes ejecutables:
 |---|---|---|
 | Pub/Sub real | Emulador oficial de Google (`gcloud beta emulators pubsub`) | Mismo SDK, comportamiento idéntico |
 | Dataflow | Apache Beam con runner local (DirectRunner) | Mismo código Beam |
-| BigQuery | *(a definir en Módulo 2)* | Sandbox cloud o DuckDB local |
-| Looker Studio | *(idem)* | Conector directo o exportación |
+| BigQuery | BigQuery **Sandbox** (cloud real, sin tarjeta) | Dialecto BigQuery puro; mismo SQL que producción |
+| Looker Studio | *(Módulo 4, planificado)* | Conector nativo a BigQuery |
 
 Esta dualidad **cloud / local** permite construir, probar y demostrar el
 proyecto sin incurrir en costos ni requerir tarjeta de crédito vinculada,
@@ -169,6 +171,43 @@ La tasa efectiva se ajusta automáticamente según la hora del día (curva
 horaria configurada en `config/settings.py`), simulando los peaks reales de
 un contact center retail.
 
+### Módulo 2 — Pipeline en streaming hacia BigQuery
+
+El pipeline de Apache Beam consume la subscripción de Pub/Sub, valida cada
+evento y lo carga en BigQuery. Requiere un proyecto con **BigQuery Sandbox**
+activo y credenciales locales (`gcloud auth application-default login`). Todas
+las terminales de esta fase exportan además el ID del proyecto:
+
+```bash
+export PUBSUB_EMULATOR_HOST=localhost:8085
+export GCP_PROJECT_ID=<tu-proyecto-gcp>
+export PYTHONPATH=.
+
+# Crea las tablas destino (idempotente) y levanta el pipeline
+bq query --use_legacy_sql=false < 02_pipeline/ddl_contactos.sql
+bq query --use_legacy_sql=false < 02_pipeline/ddl_contactos_dlq.sql
+uv run python 02_pipeline/pipeline_streaming.py --ventana 60
+```
+
+Con el generador publicando (terminal aparte), los contactos válidos aterrizan
+en `torre_control.contactos` y los mensajes mal formados en `contactos_dlq`
+(*Dead Letter Queue*). La escritura usa **load jobs** agrupados por ventana, no
+streaming inserts: es la única vía gratuita en el Sandbox (ver Decisiones técnicas).
+
+### Módulo 3 — Modelo de KPIs y datos de prueba
+
+```bash
+# Siembra un dataset realista (2000 contactos repartidos en 3 días)
+uv run python scripts/sembrar_datos_bigquery.py --total 2000 --dias 3
+
+# Crea las 7 vistas de KPIs
+bq query --use_legacy_sql=false < 03_modelo/vistas_kpis.sql
+```
+
+Las vistas (`v_kpis_globales`, `v_kpis_por_canal`, `_por_cola`, `_por_region`,
+`v_kpis_horarios`, `v_kpis_por_agente`, `v_cpo`) calculan SLA, AHT, abandono,
+FCR, CSAT y CPO listos para el dashboard.
+
 ## Stack
 
 | Capa | Tecnología | Rol |
@@ -176,8 +215,8 @@ un contact center retail.
 | Lenguaje | Python 3.11+ | Generador y consumidor |
 | Gestor de paquetes | uv | Resolución de dependencias y entornos virtuales |
 | Mensajería | Google Cloud Pub/Sub (emulador local) | Cola de eventos en streaming |
-| Procesamiento | Apache Beam *(Módulo 2, en progreso)* | Pipeline ETL streaming |
-| Data warehouse | BigQuery *(Módulo 2, en progreso)* | Almacenamiento analítico y vistas SQL |
+| Procesamiento | Apache Beam 2.70 (DirectRunner) | Pipeline ETL streaming |
+| Data warehouse | BigQuery Sandbox | Almacenamiento analítico y 7 vistas SQL de KPIs |
 | Visualización | Looker Studio *(Módulo 4, planificado)* | Dashboard ejecutivo |
 
 ## Decisiones técnicas
@@ -212,11 +251,22 @@ un contact center retail.
   archivo `uv.lock` con versiones exactas para reproducibilidad, y configuración
   unificada en `pyproject.toml` (estándar moderno PEP 621).
 
+- **Load jobs en vez de streaming inserts.** BigQuery Sandbox (sin tarjeta) no
+  permite *streaming inserts* ni *FILE_LOADS* vía GCS. La solución: un `DoFn`
+  propio que agrupa los eventos por ventana de tiempo y los carga con *load jobs*
+  (gratuitos), respetando el límite de 1.500 jobs por tabla al día. Mismo
+  resultado analítico, costo cero, sin requerir billing.
+
+- **Dead Letter Queue.** Los mensajes mal formados (JSON inválido o sin campos
+  obligatorios) no se descartan en silencio: van a una tabla `contactos_dlq` con
+  su payload crudo y el motivo del rechazo, para inspección y reproceso. Es la
+  práctica estándar de ingeniería de datos frente a entradas no confiables.
+
 ## Estado del proyecto
 
 - ✅ **Módulo 1** — Generador de eventos + ingesta vía Pub/Sub.
-- 🚧 **Módulo 2** — Pipeline streaming con Apache Beam hacia BigQuery.
-- 🚧 **Módulo 3** — Modelo SQL de KPIs (SLA, AHT, FCR, abandono, CPO, ocupación).
+- ✅ **Módulo 2** — Pipeline streaming con Apache Beam hacia BigQuery + Dead Letter Queue.
+- ✅ **Módulo 3** — Modelo SQL de KPIs: 7 vistas (SLA, AHT, FCR, abandono, CPO, por canal/cola/región/hora/agente).
 - 🚧 **Módulo 4** — Dashboard en Looker Studio.
 
 ## Autor
