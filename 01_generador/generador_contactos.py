@@ -31,7 +31,7 @@ from google.cloud import pubsub_v1  # cliente oficial de Pub/Sub para Python
 # "mágicas", solo consume catálogos. Esto lo hace mantenible y data-driven.
 from config.settings import (
     PROJECT_ID, TOPIC_ID,
-    CANALES, COLAS, REGIONES, N_AGENTES,
+    CANALES, COLAS, REGIONES, N_AGENTES, N_ORDENES_POOL,
     FACTOR_HORARIO, CONTACTOS_POR_MINUTO_PEAK, UMBRAL_SLA_SEG,
 )
 
@@ -137,8 +137,10 @@ def generar_contacto() -> dict:
         csat = None  # cliente no respondió la encuesta
 
     # Asociación a orden de compra: ~55% de los contactos refieren a una orden.
-    # Permite calcular CPO (contactos por orden) más adelante.
-    orden = f"ORD-{random.randint(100000, 999999)}" if random.random() < 0.55 else None
+    # La orden sale de un POOL acotado (N_ORDENES_POOL) para que varios contactos
+    # compartan la misma orden; sin eso, CPO siempre daría 1. Permite calcular
+    # CPO (contactos por orden) de forma realista más adelante.
+    orden = f"ORD-{random.randint(1, N_ORDENES_POOL):06d}" if random.random() < 0.55 else None
 
     # Agente asignado: id sintético dentro del rango de la dotación.
     # El formato AG-001 con padding facilita ordenar y filtrar en el dashboard.

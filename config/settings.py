@@ -87,6 +87,12 @@ REGIONES = [
 # grande como para tener variedad de agentes en el dashboard.
 N_AGENTES = 40
 
+# Pool de órdenes de compra posibles. CPO (contactos por orden) solo es > 1 si
+# varios contactos comparten la misma orden; por eso las órdenes se sacan de un
+# rango ACOTADO que fuerza repeticiones. Calibrado para que, con un volumen de
+# análisis típico (~2000 contactos), el CPO quede ~1.4-1.6, realista en retail.
+N_ORDENES_POOL = 1000
+
 # --- Parámetros de la simulación ----------------------------------------------
 # FACTOR_HORARIO: multiplicador de demanda por hora del día (0-23).
 #
