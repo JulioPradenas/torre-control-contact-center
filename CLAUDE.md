@@ -48,7 +48,7 @@ Los KPIs centrales que el proyecto modela:
 |---|---|---|
 | 1 | Generador + ingesta Pub/Sub | ✅ Completo, funcionando end-to-end |
 | 2 | Pipeline Beam → BigQuery | ✅ Completo, funcionando end-to-end |
-| 3 | Modelo SQL de KPIs | 🚧 Pendiente — plan documentado |
+| 3 | Modelo SQL de KPIs | ✅ Completo, 7 vistas validadas |
 | 4 | Dashboard Looker Studio | 🚧 Pendiente — plan documentado |
 
 **Regla:** los módulos 🚧 NO deben implementarse sin confirmación explícita
@@ -301,7 +301,29 @@ buena práctica en entrevistas.
 
 ---
 
-## 8. Módulo 3 — Modelo SQL de KPIs (🚧 pendiente — plan)
+## 8. Módulo 3 — Modelo SQL de KPIs (✅ completo)
+
+### Cómo quedó implementado
+
+Las 7 vistas viven en `03_modelo/vistas_kpis.sql` como `CREATE OR REPLACE VIEW`
+(solo `SELECT`, permitido en el Sandbox). Ya creadas y validadas en BigQuery:
+`v_kpis_globales`, `v_kpis_por_canal`, `v_kpis_por_cola`, `v_kpis_por_region`,
+`v_kpis_horarios`, `v_kpis_por_agente`, `v_cpo`.
+
+**Datos para validar:** se sembró un dataset realista directo a BigQuery con
+`scripts/sembrar_datos_bigquery.py` (reutiliza `generar_contacto()` y reparte
+los timestamps por día/hora según `FACTOR_HORARIO`). Default: 2000 contactos en
+3 días. Sembrar directo es legítimo: el pipeline ya quedó probado en M2; esto
+solo puebla volumen para la capa analítica, sin esperar horas de streaming.
+
+**Fix de CPO:** las órdenes ahora salen de un pool acotado (`N_ORDENES_POOL` en
+settings) para que varios contactos compartan orden; sin eso, CPO siempre daría 1.
+
+**Validación (2000 contactos):** SLA 58.9%, AHT 297.7s, abandono 21.3%, FCR 77.4%,
+CSAT 3.71, CPO 1.47. AHT por canal coincide con los `aht_base` (±30%). 24/24 horas
+y 40 agentes con datos.
+
+---
 
 ### Objetivo
 Construir las vistas SQL que transforman la tabla cruda de contactos en los
