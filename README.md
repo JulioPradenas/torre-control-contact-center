@@ -10,6 +10,24 @@ en vivo y reacciona a desviaciones.
 > Proyecto de portafolio orientado al cargo de **Business Analyst — Digital
 > Analytics & BI** en operaciones de atención al cliente retail.
 
+![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
+![Apache Beam](https://img.shields.io/badge/Apache%20Beam-2.70-FF6D00?logo=apachebeam&logoColor=white)
+![BigQuery](https://img.shields.io/badge/BigQuery-Sandbox-669DF6?logo=googlebigquery&logoColor=white)
+![Looker Studio](https://img.shields.io/badge/Looker%20Studio-Dashboard-4285F4?logo=looker&logoColor=white)
+![uv](https://img.shields.io/badge/uv-reproducible-DE5FE9)
+
+**[▶ Ver el dashboard en vivo](https://lookerstudio.google.com/reporting/dc53e66e-ae9d-4d20-8a89-f8da234d2e21)**
+
+[![Dashboard de torre de control](04_dashboard/screenshots/dashboard-completo.png)](https://lookerstudio.google.com/reporting/dc53e66e-ae9d-4d20-8a89-f8da234d2e21)
+
+### Qué demuestra este proyecto
+
+- **Ingeniería de datos en streaming** — pipeline `Pub/Sub → Apache Beam → BigQuery`, con ventaneo para respetar cuotas y *Dead Letter Queue* para datos corruptos.
+- **Modelado analítico en SQL** — 7 vistas de KPIs de contact center (SLA, AHT, FCR, abandono, CSAT, CPO) con manejo correcto de `NULL`.
+- **Visualización ejecutiva (BI)** — dashboard interactivo en Looker Studio con filtros globales que recortan todos los tiles a la vez.
+- **Criterio técnico frente a restricciones reales** — todo corre **sin tarjeta de crédito** (emuladores + BigQuery Sandbox); cada límite del Sandbox se resolvió con una decisión explícita y documentada.
+- **Reproducibilidad y buenas prácticas** — configuración separada de la lógica, scripts idempotentes, `uv.lock` versionado, *Conventional Commits*.
+
 ## Contexto y problema
 
 Una **torre de control** en un contact center es la función operativa que
@@ -77,7 +95,7 @@ servicios cloud por sus equivalentes ejecutables:
 | Pub/Sub real | Emulador oficial de Google (`gcloud beta emulators pubsub`) | Mismo SDK, comportamiento idéntico |
 | Dataflow | Apache Beam con runner local (DirectRunner) | Mismo código Beam |
 | BigQuery | BigQuery **Sandbox** (cloud real, sin tarjeta) | Dialecto BigQuery puro; mismo SQL que producción |
-| Looker Studio | *(Módulo 4, planificado)* | Conector nativo a BigQuery |
+| Looker Studio | Conexión nativa a las vistas de BigQuery | Mismo conector que en cloud |
 
 Esta dualidad **cloud / local** permite construir, probar y demostrar el
 proyecto sin incurrir en costos ni requerir tarjeta de crédito vinculada,
@@ -101,14 +119,14 @@ manteniendo el mismo código que correría en producción.
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/<tu-usuario>/torre-control-contact-center.git
+git clone https://github.com/JulioPradenas/torre-control-contact-center.git
 cd torre-control-contact-center
 
 # 2. Crear el entorno e instalar dependencias (uv hace ambas en un paso)
 uv sync
 ```
 
-### Levantar el entorno local (3 terminales)
+### Levantar el entorno local (4 terminales)
 
 Por la naturaleza streaming del proyecto, varios procesos corren en paralelo.
 Lo más cómodo es una terminal por proceso. Todas las terminales deben estar
@@ -262,15 +280,7 @@ FCR, CSAT y CPO listos para el dashboard.
   su payload crudo y el motivo del rechazo, para inspección y reproceso. Es la
   práctica estándar de ingeniería de datos frente a entradas no confiables.
 
-## Resultados
-
-Dashboard ejecutivo de torre de control en Looker Studio, conectado en vivo a las
-vistas de BigQuery. Filtros globales (fecha, canal, región) con *cross-filtering*
-interactivo: al clicar un elemento, todos los tiles se recortan a esa selección.
-
-**[▶ Ver el dashboard en vivo](https://lookerstudio.google.com/reporting/dc53e66e-ae9d-4d20-8a89-f8da234d2e21)**
-
-![Dashboard de torre de control](04_dashboard/screenshots/dashboard-completo.png)
+## El dashboard en detalle
 
 Métricas del período mostrado (simulación de 2.000 contactos en 3 días):
 
@@ -280,7 +290,8 @@ Métricas del período mostrado (simulación de 2.000 contactos en 3 días):
 
 El tablero incluye scorecards de KPIs hero, tendencia de SLA y volumen por hora,
 tablas por canal y cola con heatmap, top de agentes por FCR y un heatmap
-hora × canal. Los filtros globales recortan todos los tiles a la vez:
+hora × canal. Los filtros globales (fecha, canal, región) usan *cross-filtering*:
+al clicar un elemento, **todos** los tiles se recortan a esa selección.
 
 | Filtro por región (SLA) | Filtro por canal (abandono) |
 |---|---|
@@ -295,5 +306,5 @@ hora × canal. Los filtros globales recortan todos los tiles a la vez:
 
 ## Autor
 
-**Julio** — Business Analyst & Data Professional · Santiago, Chile
-[LinkedIn](https://www.linkedin.com/in/<tu-usuario>) · [GitHub](https://github.com/<tu-usuario>)
+**Julio Pradenas** — Business Analyst & Data Professional · Santiago, Chile
+[LinkedIn](https://www.linkedin.com/in/<TU-USUARIO-LINKEDIN>) · [GitHub](https://github.com/JulioPradenas)
