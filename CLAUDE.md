@@ -49,7 +49,7 @@ Los KPIs centrales que el proyecto modela:
 | 1 | Generador + ingesta Pub/Sub | ✅ Completo, funcionando end-to-end |
 | 2 | Pipeline Beam → BigQuery | ✅ Completo, funcionando end-to-end |
 | 3 | Modelo SQL de KPIs | ✅ Completo, 7 vistas validadas |
-| 4 | Dashboard Looker Studio | 🚧 Pendiente — plan documentado |
+| 4 | Dashboard Looker Studio | ✅ Completo, publicado con capturas |
 
 **Regla:** los módulos 🚧 NO deben implementarse sin confirmación explícita
 del usuario. El plan descrito abajo es referencia; la implementación se hace
@@ -374,7 +374,26 @@ Ejecutar cada vista y revisar plausibilidad:
 
 ---
 
-## 9. Módulo 4 — Dashboard Looker Studio (🚧 pendiente — plan)
+## 9. Módulo 4 — Dashboard Looker Studio (✅ completo)
+
+### Cómo quedó implementado
+
+Dashboard ejecutivo publicado, conectado a la vista granular
+`v_contactos_dashboard` (no a las vistas agregadas), para que los filtros
+globales (fecha, canal, región) recorten todos los tiles. Los KPIs son campos
+calculados en Looker sobre los flags de la vista (`SLA % = AVG(sla_flag)*100`, etc.).
+
+- `04_dashboard/guia_looker.md` — guía paso a paso (incluye los gotchas reales:
+  bucle de autorización, colisión de nombres `CSAT` vs `csat`, Line chart vs Time
+  series para `hora_del_dia`, filtro `abandono_flag = 0`, tamaño del lienzo).
+- `04_dashboard/screenshots/` — capturas en el README (sección Resultados).
+- Link público: https://lookerstudio.google.com/reporting/dc53e66e-ae9d-4d20-8a89-f8da234d2e21
+
+> Nota: la fuente es `v_contactos_dashboard` (vista #8 en `03_modelo/vistas_kpis.sql`),
+> que añade fecha/hora y flags numéricos a la tabla cruda. El flag `fcr_flag`
+> conserva NULL en abandonados para no subestimar el FCR.
+
+---
 
 ### Objetivo
 Dashboard ejecutivo de torre de control consumiendo las vistas del Módulo 3.

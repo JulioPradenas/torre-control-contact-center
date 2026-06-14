@@ -217,7 +217,7 @@ FCR, CSAT y CPO listos para el dashboard.
 | Mensajería | Google Cloud Pub/Sub (emulador local) | Cola de eventos en streaming |
 | Procesamiento | Apache Beam 2.70 (DirectRunner) | Pipeline ETL streaming |
 | Data warehouse | BigQuery Sandbox | Almacenamiento analítico y 7 vistas SQL de KPIs |
-| Visualización | Looker Studio *(Módulo 4, planificado)* | Dashboard ejecutivo |
+| Visualización | Looker Studio | Dashboard ejecutivo interactivo sobre las vistas de BigQuery |
 
 ## Decisiones técnicas
 
@@ -262,12 +262,36 @@ FCR, CSAT y CPO listos para el dashboard.
   su payload crudo y el motivo del rechazo, para inspección y reproceso. Es la
   práctica estándar de ingeniería de datos frente a entradas no confiables.
 
+## Resultados
+
+Dashboard ejecutivo de torre de control en Looker Studio, conectado en vivo a las
+vistas de BigQuery. Filtros globales (fecha, canal, región) con *cross-filtering*
+interactivo: al clicar un elemento, todos los tiles se recortan a esa selección.
+
+**[▶ Ver el dashboard en vivo](https://lookerstudio.google.com/reporting/dc53e66e-ae9d-4d20-8a89-f8da234d2e21)**
+
+![Dashboard de torre de control](04_dashboard/screenshots/dashboard-completo.png)
+
+Métricas del período mostrado (simulación de 2.000 contactos en 3 días):
+
+| SLA | AHT | Abandono | FCR | CSAT | CPO |
+|---|---|---|---|---|---|
+| 58.3% | 298 s | 21.6% | 77.8% | 3.71 | 1.29 |
+
+El tablero incluye scorecards de KPIs hero, tendencia de SLA y volumen por hora,
+tablas por canal y cola con heatmap, top de agentes por FCR y un heatmap
+hora × canal. Los filtros globales recortan todos los tiles a la vez:
+
+| Filtro por región (SLA) | Filtro por canal (abandono) |
+|---|---|
+| ![Filtro por región](04_dashboard/screenshots/detalle-filtro-region.png) | ![Filtro por canal](04_dashboard/screenshots/detalle-filtro-canal.png) |
+
 ## Estado del proyecto
 
 - ✅ **Módulo 1** — Generador de eventos + ingesta vía Pub/Sub.
 - ✅ **Módulo 2** — Pipeline streaming con Apache Beam hacia BigQuery + Dead Letter Queue.
 - ✅ **Módulo 3** — Modelo SQL de KPIs: 7 vistas (SLA, AHT, FCR, abandono, CPO, por canal/cola/región/hora/agente).
-- 🚧 **Módulo 4** — Dashboard en Looker Studio.
+- ✅ **Módulo 4** — Dashboard ejecutivo en Looker Studio con filtros interactivos.
 
 ## Autor
 
