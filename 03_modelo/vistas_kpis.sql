@@ -103,3 +103,23 @@ SELECT
     ROUND(COUNT(*) / COUNT(DISTINCT orden_asociada), 2)         AS cpo
 FROM `torre-control-cc.torre_control.contactos`
 WHERE orden_asociada IS NOT NULL;
+
+
+-- 8. Vista GRANULAR para Looker Studio (Modulo 4).
+--    Fila por fila (no agregada), con todas las dimensiones para filtrar y
+--    columnas de conveniencia que simplifican los campos calculados en Looker:
+--      - fecha / hora_del_dia: ya extraidas del timestamp.
+--      - *_flag: el bool casteado a INT64. Clave: fcr_flag conserva NULL para
+--        los abandonados (CAST de NULL = NULL), asi AVG los excluye solos y el
+--        FCR no se subestima. con_orden_flag marca los contactos con orden.
+--    En Looker: SLA% = AVG(sla_flag)*100, AHT = AVG(tiempo_atencion_seg), etc.
+CREATE OR REPLACE VIEW `torre-control-cc.torre_control.v_contactos_dashboard` AS
+SELECT
+    *,
+    DATE(timestamp_evento)                          AS fecha,
+    EXTRACT(HOUR FROM timestamp_evento)             AS hora_del_dia,
+    CAST(dentro_sla AS INT64)                       AS sla_flag,
+    CAST(abandonado AS INT64)                       AS abandono_flag,
+    CAST(resuelto_primer_contacto AS INT64)         AS fcr_flag,
+    IF(orden_asociada IS NOT NULL, 1, 0)            AS con_orden_flag
+FROM `torre-control-cc.torre_control.contactos`;
